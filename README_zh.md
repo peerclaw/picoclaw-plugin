@@ -1,14 +1,14 @@
-**English** | [中文](README_zh.md)
+[English](README.md) | **中文**
 
 # peerclaw-picoclaw-plugin
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 
-PicoClaw channel plugin for [PeerClaw](https://github.com/peerclaw/peerclaw) — a P2P agent identity and trust platform.
+[PeerClaw](https://github.com/peerclaw/peerclaw) 的 PicoClaw 通道插件 — 一个 P2P 智能体身份与信任平台。
 
-This plugin implements PicoClaw's `Channel` interface using the factory registration pattern, enabling PeerClaw P2P messaging within PicoClaw's AI agent loop via a local WebSocket bridge.
+本插件使用工厂注册模式实现了 PicoClaw 的 `Channel` 接口，通过本地 WebSocket 桥接在 PicoClaw 的 AI 智能体循环中启用 PeerClaw P2P 消息通信。
 
-## Architecture
+## 架构
 
 ```
 PeerClaw Agent (Go)              PicoClaw
@@ -24,25 +24,25 @@ agent/platform/bridge/           this plugin
     P2P Network                  PicoClaw Agent
 ```
 
-The plugin starts a local WebSocket bridge server. The PeerClaw Go agent connects using the bridge adapter (`agent/platform/bridge/`). Messages flow bidirectionally:
+插件启动一个本地 WebSocket 桥接服务器。PeerClaw Go 智能体使用桥接适配器（`agent/platform/bridge/`）进行连接。消息双向流动：
 
-1. **Inbound**: PeerClaw agent sends `chat.send` → plugin calls `HandleMessage()` → PicoClaw AgentLoop processes → AI response
-2. **Outbound**: PicoClaw calls `Send()` → plugin sends `chat.event` frame → PeerClaw agent routes to P2P peer
+1. **入站**：PeerClaw 智能体发送 `chat.send` → 插件调用 `HandleMessage()` → PicoClaw AgentLoop 处理 → AI 响应
+2. **出站**：PicoClaw 调用 `Send()` → 插件发送 `chat.event` 帧 → PeerClaw 智能体将消息路由至 P2P 对等节点
 
-## Integration
+## 集成
 
-Since PicoClaw uses Go's `init()` registration pattern, integrate by adding a blank import:
+由于 PicoClaw 使用 Go 的 `init()` 注册模式，通过添加空白导入即可集成：
 
 ```go
 // In your gateway helpers or main.go:
 import _ "github.com/peerclaw/picoclaw-plugin"
 ```
 
-This triggers the `init()` function which calls `channels.RegisterFactory("peerclaw", ...)`.
+这会触发 `init()` 函数，调用 `channels.RegisterFactory("peerclaw", ...)`。
 
-## Configuration
+## 配置
 
-Add to your PicoClaw `config.json`:
+在 PicoClaw 的 `config.json` 中添加：
 
 ```json
 {
@@ -57,18 +57,18 @@ Add to your PicoClaw `config.json`:
 }
 ```
 
-### Configuration Options
+### 配置选项
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `enabled` | boolean | `false` | Enable/disable the PeerClaw channel |
-| `bridge_host` | string | `"localhost"` | Bridge WebSocket server bind address |
-| `bridge_port` | string | `"19100"` | Bridge WebSocket server port |
-| `allow_from` | string[] | `[]` | Allowed PeerClaw agent IDs |
+| `enabled` | boolean | `false` | 启用/禁用 PeerClaw 通道 |
+| `bridge_host` | string | `"localhost"` | 桥接 WebSocket 服务器绑定地址 |
+| `bridge_port` | string | `"19100"` | 桥接 WebSocket 服务器端口 |
+| `allow_from` | string[] | `[]` | 允许的 PeerClaw 智能体 ID 列表 |
 
-## Agent-Side Setup
+## 智能体端配置
 
-On the PeerClaw agent side, configure the bridge platform adapter in your `peerclaw.yaml`:
+在 PeerClaw 智能体端，在 `peerclaw.yaml` 中配置桥接平台适配器：
 
 ```yaml
 platform:
@@ -76,29 +76,29 @@ platform:
   url: "ws://localhost:19100"
 ```
 
-## Bridge Protocol
+## 桥接协议
 
-Simple JSON frames over WebSocket:
+基于 WebSocket 的简单 JSON 帧：
 
-**Agent → Plugin**:
+**智能体 → 插件**：
 ```json
 {"type": "chat.send", "data": {"sessionKey": "peerclaw:dm:<peer_id>", "message": "Hello"}}
 {"type": "chat.inject", "data": {"sessionKey": "peerclaw:notifications", "message": "[INFO] ...", "label": "notification"}}
 {"type": "ping"}
 ```
 
-**Plugin → Agent**:
+**插件 → 智能体**：
 ```json
 {"type": "chat.event", "data": {"sessionKey": "peerclaw:dm:<peer_id>", "state": "final", "message": "AI response"}}
 {"type": "pong"}
 ```
 
-## Development
+## 开发
 
 ```bash
 go get github.com/peerclaw/picoclaw-plugin
 ```
 
-## License
+## 许可证
 
 [Apache-2.0](LICENSE)
