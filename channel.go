@@ -25,13 +25,13 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"os"
 	"strings"
 	"sync"
 
 	"github.com/coder/websocket"
 	"github.com/sipeed/picoclaw/pkg/bus"
 	"github.com/sipeed/picoclaw/pkg/channels"
-	"github.com/sipeed/picoclaw/pkg/config"
 )
 
 // Bridge protocol frame types.
@@ -67,7 +67,8 @@ type chatEventData struct {
 // Channel implements the PicoClaw channels.Channel interface for PeerClaw.
 type Channel struct {
 	*channels.BaseChannel
-	cfg        *config.Config
+	bridgeHost string
+	bridgePort string
 	logger     *slog.Logger
 	httpServer *http.Server
 	clients    map[*websocket.Conn]struct{}
@@ -77,11 +78,12 @@ type Channel struct {
 }
 
 // NewChannel creates a new PeerClaw channel.
-func NewChannel(cfg *config.Config, msgBus *bus.MessageBus) (*Channel, error) {
-	base := channels.NewBaseChannel("peerclaw", cfg, msgBus)
+func NewChannel(cfg any, msgBus *bus.MessageBus) (*Channel, error) {
+	base := channels.NewBaseChannel("peerclaw", cfg, msgBus, nil)
 	return &Channel{
 		BaseChannel: base,
-		cfg:         cfg,
+		bridgeHost:  envOrDefault("PEERCLAW_BRIDGE_HOST", "localhost"),
+		bridgePort:  envOrDefault("PEERCLAW_BRIDGE_PORT", "19100"),
 		logger:      slog.Default().With("channel", "peerclaw"),
 		clients:     make(map[*websocket.Conn]struct{}),
 	}, nil
@@ -94,9 +96,7 @@ func (c *Channel) Name() string { return "peerclaw" }
 func (c *Channel) Start(ctx context.Context) error {
 	c.ctx, c.cancel = context.WithCancel(ctx)
 
-	host := c.GetConfigString("bridge_host", "localhost")
-	port := c.GetConfigString("bridge_port", "19100")
-	addr := net.JoinHostPort(host, port)
+	addr := net.JoinHostPort(c.bridgeHost, c.bridgePort)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", c.handleWebSocket)
@@ -214,10 +214,10 @@ func (c *Channel) handleFrame(data []byte) {
 		c.HandleMessage(
 			c.ctx,
 			bus.Peer{Kind: "direct", ID: senderID},
-			"",
-			senderID,
-			senderID,
-			d.Message,
+			"",         // messageID
+			senderID,   // senderID
+			senderID,   // chatID
+			d.Message,  // content
 			nil, nil,
 			bus.SenderInfo{
 				Platform:    "peerclaw",
@@ -236,10 +236,10 @@ func (c *Channel) handleFrame(data []byte) {
 		c.HandleMessage(
 			c.ctx,
 			bus.Peer{Kind: "direct", ID: "peerclaw-notifications"},
-			"",
-			"peerclaw-system",
-			"peerclaw-notifications",
-			d.Message,
+			"",                       // messageID
+			"peerclaw-system",        // senderID
+			"peerclaw-notifications", // chatID
+			d.Message,                // content
 			nil, nil,
 			bus.SenderInfo{
 				Platform:    "peerclaw",
@@ -266,4 +266,11 @@ func extractPeerID(sessionKey string) string {
 		return sessionKey[len(prefix):]
 	}
 	return sessionKey
+}
+
+func envOrDefault(key, fallback string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return fallback
 }
